@@ -1,0 +1,7 @@
+Conjugate finnish verbs with haskelli!
+
+Usage:
+------------------
+ghc -o conj --make Conjugate.hs
+
+./conj
