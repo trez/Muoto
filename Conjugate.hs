@@ -1,6 +1,35 @@
 {-# LANGUAGE UnicodeSyntax #-}
 module Main (
     main
+
+  -- *
+  , Verb (..)
+
+  -- * Grammatical categories.
+  , Modus (Indikativ, Potentialis, Imperativ, Konditionalis)
+  , Tempus (Presens, Imperfekt, Perfekt, Pluskvamperfekt)
+  , Mood (Positiv, Negativ)
+  , Voice (..)
+  , Persona (..)
+  , Numerus (Singularis, Pluralis)
+
+  -- * Alphabet.
+  , vowels             -- :: [Char]
+  , isVowel            -- :: Char -> Bool
+  , isRoundVowel       -- :: Char -> Bool
+  , isNeutralVowel     -- :: Char -> Bool
+  , isBackVowel        -- :: Char -> Bool
+  , isFrontVowel       -- :: Char -> Bool
+  , consonants         -- :: [Char]
+  , isConsonant        -- :: Char -> Bool
+
+  -- * Sounds
+  , endsWithShortVowel -- :: String -> Bool
+  , endsWithLongVowel  -- :: String -> Bool
+  , endsWithDiftong    -- :: String -> Bool
+  , endsWithLongSound  -- :: String -> Bool
+
+  , syllabels          -- :: String -> [String]
   ) where
 
 import qualified System.IO.UTF8 as IO
@@ -47,6 +76,7 @@ data Numerus =
   deriving (Eq, Show)
 
 -------------------------------------------------------------------------------
+change :: String -> String
 change stam =
     let xs = stav stam
         ([a,b]) = takeLast 2 xs
@@ -93,22 +123,25 @@ change2 stam
     = stam
 
 ------------------------------------------------------------------------------
+-- | Check if consonant gradation is needed.
 stadie
     (Verb { theWord = v, modus = modus, voice = voice, mood = mood
           , tempus = tempus}) ending
   = and [
-    -- Basic
+     -- Basic;
       contains "ptk" . take 1 . last $ stv
-    , -- A(g) -- Inga enstaviga ord
+    , -- A(g);
       length stv > 1
+--    , -- A(f);
+
     ] && or [
-      -- A(a) -- ändelsen är bara en konsonant
+      -- A(a);
       length ending == 1 && isConsonant (head ending)
-    , -- A(b) -- ändelsen börjar på två konsonanter
+    , -- A(b);
       length ending >= 2 && all isConsonant (take 2 ending)
-    , -- B(b)
+    , -- B(b);
       modus == Imperativ && voice == Active (Persona 2 Singularis)
-    , -- B(c); This is because the ending used to be "k".
+    , -- B(c);
       mood == Negativ && tempus == Presens && modus == Indikativ
     ]
   where
@@ -149,8 +182,8 @@ instance Show Verb where
                 -- FIXME
                 (Passive, Positiv)
                   -> case l of
-                       1 -> word ++ if backVowel b then "taan" else "tään"
-                       _ -> word ++ if backVowel word then "an" else "än"
+                       1 -> word ++ if isBackVowel b then "taan" else "tään"
+                       _ -> word ++ if isBackVowel word then "an" else "än"
                 (Passive, Negativ)
                   -> "hej"
   -- ***********
@@ -201,7 +234,7 @@ allVoice = [Active (Persona p n) | n <- [Singularis, Pluralis]
 
 -- | Add a ending depending on the harmoni of the word.
 s `addEnding` (endBack, endFront)
-  | backVowel s = s ++ endBack
+  | isBackVowel s = s ++ endBack
   | otherwise   = s ++ endFront
 
 -----------------------------------------------------------------------------
@@ -263,7 +296,7 @@ stam v
         's' -> (3, dropLast 2 v
                 , dropLast 2 v ++ "e")
         _   -> (4, dropLast 2 v
-                , dropLast 2 v ++ if backVowel v then "a" else "ä")
+                , dropLast 2 v ++ if isBackVowel v then "a" else "ä")
   | v `endsWithEither` ["la", "lä", "na", "nä", "ra"]
     = (3, dropLast 2 v, dropLast 2 v ++ "e")
   | v `endsWithEither` ["da", "dä"]
@@ -279,7 +312,7 @@ form (Verb {theWord = v, voice = Active p}) = case p of
     Persona 3 Singularis -> if endsWithLongSound stm then "" else [last stm]
     Persona 1 Pluralis   -> "mme"
     Persona 2 Pluralis   -> "tte"
-    Persona 3 Pluralis   -> if backVowel stm then "vat" else "vät"
+    Persona 3 Pluralis   -> if isBackVowel stm then "vat" else "vät"
   where
     stm = tr $ stam v
 
@@ -308,28 +341,60 @@ contains xs ys = or [ x == y | x <- xs, y <- ys]
 -- SOUND
 -- Vokalharmoni
 
-frontVowel, backVowel, neutralVowel :: String -> Bool
-frontVowel   = contains "äöy"
-backVowel    = contains "aou"
-neutralVowel = contains "ei"
+isFrontVowel :: String -> Bool
+isFrontVowel = contains "äöy"
 
-isVowel, isConsonant, isRoundVowel :: Char -> Bool
-isVowel = contains "äöyaouei" . return
-isConsonant = not . isVowel
+isBackVowel :: String -> Bool
+isBackVowel = contains "aou"
+
+isNeutralVowel :: String -> Bool
+isNeutralVowel = contains "ei"
+
+isRoundVowel :: Char -> Bool
 isRoundVowel = contains "oöuy" . return
+
+-- | The different vowels.
+vowels :: [Char]
+vowels = ['a' , 'e' , 'i' , 'o' , 'u' , 'y' , 'ä' , 'ö']
+
+-- | Check if a character is a vowel.
+isVowel :: Char -> Bool
+isVowel = contains vowels . return
+
+-- | The different consonants.
+consonants :: [Char]
+consonants = [ 'b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q'
+             , 'r', 's', 't', 'v', 'w', 'x', 'z']
+
+-- | Check if a character is a consonant.
+isConsonant :: Char -> Bool
+isConsonant = contains consonants . return
 
 isDiftong :: String -> Bool
 isDiftong = contains diftongs . return
-  where diftongs = [ "ei", "äi", "ui", "ai", "oi", "öi", "yi", "au"
-                   , "ou", "eu", "iu", "äy", "öy", "ie", "yö", "uo"]
+  where diftongs = [ "ei", "äi", "ui", "ai", "oi", "öi", "yi"
+                   , "au", "ou", "eu", "iu"
+                   , "äy", "öy"
+                   , "ie"
+                   , "yö"
+                   , "uo"]
 
-endsWithLongSound, endsWithDiftong, endsWithLongVowel :: String -> Bool
+endsWithLongSound :: String -> Bool
 endsWithLongSound s = endsWithDiftong s || endsWithLongVowel s
+
+-- Diphthong
+endsWithDiftong :: String -> Bool
 endsWithDiftong = isDiftong . takeLast 2
-endsWithLongVowel s = let [a, b] = takeLast 2 s in isVowel a && a == b
+
+endsWithLongVowel :: String -> Bool
+endsWithLongVowel s = let [a, b] = takeLast 2 s
+                      in isVowel a && a == b
+
+endsWithShortVowel :: String -> Bool
 endsWithShortVowel s = let [a, b] = takeLast 2 s
                        in isVowel b && not (isDiftong [a,b]) && a /= b
 
+syllabels = stav
 stav :: String -> [String]
 stav s = case stavelser s [] of
     ("" : xs) -> xs
